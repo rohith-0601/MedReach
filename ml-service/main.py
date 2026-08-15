@@ -18,7 +18,9 @@ try:
     if type(eng_model).__name__ in ['RandomForestClassifier', 'XGBClassifier']:
         explainer = shap.TreeExplainer(eng_model)
     else:
-        explainer = shap.LinearExplainer(eng_model, pd.DataFrame(columns=eng_features)) # Fallback if LogisticRegression
+        # Fallback if LogisticRegression: requires a non-empty background dataset
+        background_data = pd.DataFrame(np.zeros((1, len(eng_features))), columns=eng_features)
+        explainer = shap.LinearExplainer(eng_model, background_data)
         
     print("Models loaded successfully.")
 except Exception as e:
