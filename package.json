@@ -1,0 +1,17 @@
+{
+  "name": "medreach",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MedReach — Pharma/biotech patient & HCP engagement platform",
+  "scripts": {
+    "client": "cd client && npm run dev",
+    "server": "cd server && npm run dev",
+    "ml": "cd ml-service && uvicorn main:app --reload --port 8000",
+    "seed": "cd server && node seed.js",
+    "install:all": "cd client && npm install && cd ../server && npm install",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
+  }
+}
