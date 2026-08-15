@@ -6,61 +6,59 @@ const OutreachProgram = require('../models/OutreachProgram');
 // GET dashboard summary
 router.get('/dashboard', async (req, res) => {
   try {
-    const totalRecipients = await Recipient.countDocuments();
-    const hcpCount = await Recipient.countDocuments({ type: 'HCP' });
-    const patientCount = await Recipient.countDocuments({ type: 'Patient' });
-    
-    const totalPrograms = await OutreachProgram.countDocuments();
-    const sentPrograms = await OutreachProgram.countDocuments({ status: 'Sent' });
-    const draftPrograms = await OutreachProgram.countDocuments({ status: 'Draft' });
-    const scheduledPrograms = await OutreachProgram.countDocuments({ status: 'Scheduled' });
-
-    // Avg engagement by therapy area / specialty
-    const patientEngagement = await Recipient.aggregate([
-      { $match: { type: 'Patient' } },
-      { $group: { _id: '$therapyArea', avgAdherence: { $avg: '$adherenceScore' }, count: { $sum: 1 } } }
+    const [
+      totalRecipients,
+      hcpCount,
+      patientCount,
+      totalPrograms,
+      sentPrograms,
+      draftPrograms,
+      scheduledPrograms,
+      patientEngagement,
+      hcpEngagement,
+      programStats,
+      programPerformance,
+      avgEngagement,
+      avgAdherence,
+      recentPrograms
+    ] = await Promise.all([
+      Recipient.countDocuments(),
+      Recipient.countDocuments({ type: 'HCP' }),
+      Recipient.countDocuments({ type: 'Patient' }),
+      OutreachProgram.countDocuments(),
+      OutreachProgram.countDocuments({ status: 'Sent' }),
+      OutreachProgram.countDocuments({ status: 'Draft' }),
+      OutreachProgram.countDocuments({ status: 'Scheduled' }),
+      Recipient.aggregate([
+        { $match: { type: 'Patient' } },
+        { $group: { _id: '$therapyArea', avgAdherence: { $avg: '$adherenceScore' }, count: { $sum: 1 } } }
+      ]),
+      Recipient.aggregate([
+        { $match: { type: 'HCP' } },
+        { $group: { _id: '$specialty', avgEngagement: { $avg: '$engagementScore' }, count: { $sum: 1 } } }
+      ]),
+      OutreachProgram.aggregate([
+        { $match: { status: 'Sent' } },
+        { $group: {
+          _id: null,
+          totalSent: { $sum: '$recipientCount' },
+          totalOpens: { $sum: '$opens' },
+          totalClicks: { $sum: '$clicks' },
+          avgOpenRate: { $avg: { $cond: [{ $gt: ['$recipientCount', 0] }, { $divide: ['$opens', '$recipientCount'] }, 0] } },
+          avgClickRate: { $avg: { $cond: [{ $gt: ['$recipientCount', 0] }, { $divide: ['$clicks', '$recipientCount'] }, 0] } }
+        }}
+      ]),
+      OutreachProgram.find({ status: 'Sent' }).select('subject programType recipientCount opens clicks sentAt').sort({ sentAt: -1 }).limit(10),
+      Recipient.aggregate([
+        { $match: { type: 'HCP' } },
+        { $group: { _id: null, avg: { $avg: '$engagementScore' } } }
+      ]),
+      Recipient.aggregate([
+        { $match: { type: 'Patient' } },
+        { $group: { _id: null, avg: { $avg: '$adherenceScore' } } }
+      ]),
+      OutreachProgram.find().populate('cohortId').sort({ createdAt: -1 }).limit(5)
     ]);
-
-    const hcpEngagement = await Recipient.aggregate([
-      { $match: { type: 'HCP' } },
-      { $group: { _id: '$specialty', avgEngagement: { $avg: '$engagementScore' }, count: { $sum: 1 } } }
-    ]);
-
-    // Program performance
-    const programStats = await OutreachProgram.aggregate([
-      { $match: { status: 'Sent' } },
-      { $group: {
-        _id: null,
-        totalSent: { $sum: '$recipientCount' },
-        totalOpens: { $sum: '$opens' },
-        totalClicks: { $sum: '$clicks' },
-        avgOpenRate: { $avg: { $cond: [{ $gt: ['$recipientCount', 0] }, { $divide: ['$opens', '$recipientCount'] }, 0] } },
-        avgClickRate: { $avg: { $cond: [{ $gt: ['$recipientCount', 0] }, { $divide: ['$clicks', '$recipientCount'] }, 0] } }
-      }}
-    ]);
-
-    // Per-program performance list
-    const programPerformance = await OutreachProgram.find({ status: 'Sent' })
-      .select('subject programType recipientCount opens clicks sentAt')
-      .sort({ sentAt: -1 })
-      .limit(10);
-
-    // Overall averages
-    const avgEngagement = await Recipient.aggregate([
-      { $match: { type: 'HCP' } },
-      { $group: { _id: null, avg: { $avg: '$engagementScore' } } }
-    ]);
-
-    const avgAdherence = await Recipient.aggregate([
-      { $match: { type: 'Patient' } },
-      { $group: { _id: null, avg: { $avg: '$adherenceScore' } } }
-    ]);
-
-    // Recent programs
-    const recentPrograms = await OutreachProgram.find()
-      .populate('cohortId')
-      .sort({ createdAt: -1 })
-      .limit(5);
 
     res.json({
       recipients: { total: totalRecipients, hcp: hcpCount, patient: patientCount },

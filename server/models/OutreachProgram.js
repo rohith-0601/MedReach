@@ -22,4 +22,7 @@ const outreachProgramSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+outreachProgramSchema.index({ status: 1 });
+outreachProgramSchema.index({ sentAt: -1 });
+
 module.exports = mongoose.model('OutreachProgram', outreachProgramSchema);

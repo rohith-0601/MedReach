@@ -24,4 +24,8 @@ const recipientSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+recipientSchema.index({ type: 1 });
+recipientSchema.index({ therapyArea: 1 });
+recipientSchema.index({ specialty: 1 });
+
 module.exports = mongoose.model('Recipient', recipientSchema);
